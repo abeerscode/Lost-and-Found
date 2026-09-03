@@ -1,0 +1,205 @@
+<?php
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth_check.php';
+
+$postId = (int)($_GET['id'] ?? 0);
+
+$stmt = $pdo->prepare(
+    'SELECT p.*, c.name AS category_name, u.name AS owner_name, u.id AS owner_id
+     FROM posts p JOIN categories c ON c.id = p.category_id JOIN users u ON u.id = p.user_id
+     WHERE p.id = ?'
+);
+$stmt->execute([$postId]);
+$post = $stmt->fetch();
+
+if (!$post) {
+    http_response_code(404);
+    $pageTitle = 'Not Found';
+    include __DIR__ . '/../includes/header.php';
+    echo '<p>This post no longer exists.</p>';
+    include __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
+$isOwner = (int)$post['owner_id'] === (int)current_user_id();
+
+// Comments
+$stmt = $pdo->prepare(
+    'SELECT cm.*, u.name AS author_name FROM comments cm JOIN users u ON u.id = cm.user_id
+     WHERE cm.post_id = ? ORDER BY cm.created_at ASC'
+);
+$stmt->execute([$postId]);
+$comments = $stmt->fetchAll();
+
+// Claims (the post owner sees all claims on their post; a claimant sees only
+// their own — admin-side review happens separately in the admin panel)
+if ($isOwner) {
+    $stmt = $pdo->prepare(
+        'SELECT cl.*, u.name AS claimant_name FROM claims cl JOIN users u ON u.id = cl.claimant_id
+         WHERE cl.post_id = ? ORDER BY cl.created_at DESC'
+    );
+    $stmt->execute([$postId]);
+} else {
+    $stmt = $pdo->prepare(
+        'SELECT cl.*, u.name AS claimant_name FROM claims cl JOIN users u ON u.id = cl.claimant_id
+         WHERE cl.post_id = ? AND cl.claimant_id = ? ORDER BY cl.created_at DESC'
+    );
+    $stmt->execute([$postId, current_user_id()]);
+}
+$claims = $stmt->fetchAll();
+
+$myPendingClaim = null;
+foreach ($claims as $c) {
+    if ((int)$c['claimant_id'] === (int)current_user_id() && $c['status'] === 'pending') {
+        $myPendingClaim = $c;
+    }
+}
+
+$isAjax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+$commentError = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'comment') {
+    csrf_verify();
+    $message = trim($_POST['message'] ?? '');
+    if ($message === '') {
+        $commentError = 'Comment cannot be empty.';
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => $commentError]);
+            exit;
+        }
+    } else {
+        $stmt = $pdo->prepare('INSERT INTO comments (post_id, user_id, message) VALUES (?, ?, ?)');
+        $stmt->execute([$postId, current_user_id(), $message]);
+        if (!$isOwner) {
+            create_notification(
+                $pdo, $post['owner_id'], 'comment',
+                $_SESSION['name'] . ' commented on your post "' . $post['title'] . '"',
+                BASE_URL . '/posts/view.php?id=' . $postId
+            );
+        }
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'author_name' => $_SESSION['name'],
+                'message' => $message,
+                'time_ago' => 'just now',
+            ]);
+            exit;
+        }
+        redirect('/posts/view.php?id=' . $postId . '#comments');
+    }
+}
+
+$pageTitle = $post['title'];
+include __DIR__ . '/../includes/header.php';
+?>
+<div class="post-detail">
+    <div class="post-detail-header">
+        <span class="type-tag type-<?= e($post['type']) ?>"><?= $post['type'] === 'lost' ? 'Lost Item' : 'Found Item' ?></span>
+        <?= status_badge($post['status']) ?>
+        <?php if ($post['is_high_value']): ?>
+            <span class="badge badge-highvalue">High-Value &mdash; Admin Verification Required</span>
+        <?php endif; ?>
+    </div>
+
+    <h1><?= e($post['title']) ?></h1>
+
+    <?php if ($post['photo_url']): ?>
+        <img class="post-photo" src="<?= e(post_photo_url($post['photo_url'])) ?>" alt="<?= e($post['title']) ?>">
+    <?php endif; ?>
+
+    <dl class="post-meta">
+        <dt>Category</dt><dd><?= e($post['category_name']) ?></dd>
+        <dt>Location</dt><dd><?= e($post['location']) ?></dd>
+        <dt>Date/Time</dt><dd><?= e(date('M j, Y g:i A', strtotime($post['item_datetime']))) ?></dd>
+        <dt>Posted by</dt><dd><a class="profile-inline-link" href="<?= BASE_URL ?>/auth/profile.php?id=<?= $post['owner_id'] ?>"><?= e($post['owner_name']) ?></a> &middot; <?= e(time_ago($post['created_at'])) ?></dd>
+    </dl>
+
+    <p class="post-description"><?= nl2br(e($post['description'])) ?></p>
+
+    <?php if ($isOwner): ?>
+        <div class="action-bar">
+            <a class="btn" href="<?= BASE_URL ?>/posts/edit.php?id=<?= $post['id'] ?>">Edit Post</a>
+            <form method="post" action="<?= BASE_URL ?>/posts/delete.php" onsubmit="return confirm('Delete this post permanently?');" style="display:inline">
+                <?= csrf_field() ?>
+                <input type="hidden" name="id" value="<?= $post['id'] ?>">
+                <button type="submit" class="btn btn-danger">Delete Post</button>
+            </form>
+            <form method="post" action="<?= BASE_URL ?>/posts/update_status.php" style="display:inline">
+                <?= csrf_field() ?>
+                <input type="hidden" name="id" value="<?= $post['id'] ?>">
+                <select name="status" onchange="this.form.submit()">
+                    <?php foreach (['open', 'claimed', 'resolved'] as $s): ?>
+                        <option value="<?= $s ?>" <?= $post['status'] === $s ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
+    <?php elseif (!$myPendingClaim): ?>
+        <div class="action-bar">
+            <a class="btn btn-primary" href="<?= BASE_URL ?>/claims/create_claim.php?post_id=<?= $post['id'] ?>">Submit Claim Request</a>
+            <a class="btn" href="<?= BASE_URL ?>/messages/conversation.php?with=<?= $post['owner_id'] ?>&post_id=<?= $post['id'] ?>">Message Poster</a>
+        </div>
+    <?php else: ?>
+        <p class="muted">Your claim request is pending review.</p>
+    <?php endif; ?>
+
+    <?php if ($isOwner): ?>
+        <section class="claims-section">
+            <h2>Claim Requests (<?= count($claims) ?>)</h2>
+            <?php if (!$claims): ?>
+                <p class="muted">No claim requests yet.</p>
+            <?php endif; ?>
+            <?php foreach ($claims as $claim): ?>
+                <div class="claim-card">
+                    <div class="claim-card-top">
+                        <strong><?= e($claim['claimant_name']) ?></strong>
+                        <?= status_badge($claim['status']) ?>
+                        <span class="muted"><?= e(time_ago($claim['created_at'])) ?></span>
+                    </div>
+                    <p><?= nl2br(e($claim['proof_description'])) ?></p>
+                    <?php if ($claim['status'] === 'pending'): ?>
+                        <?php if ($post['is_high_value']): ?>
+                            <p class="muted">This item is flagged high-value &mdash; it has been routed to an administrator for verification. You'll be notified once it's reviewed.</p>
+                        <?php else: ?>
+                            <form method="post" action="<?= BASE_URL ?>/claims/respond_claim.php" style="display:inline">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="claim_id" value="<?= $claim['id'] ?>">
+                                <button type="submit" name="decision" value="approved" class="btn btn-primary btn-sm">Approve</button>
+                                <button type="submit" name="decision" value="rejected" class="btn btn-danger btn-sm">Reject</button>
+                            </form>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </section>
+    <?php endif; ?>
+
+    <section class="comments-section" id="comments">
+        <h2 id="comments-heading">Comments (<span id="comments-count"><?= count($comments) ?></span>)</h2>
+        <?php if ($commentError): ?>
+            <div class="flash flash-error"><?= e($commentError) ?></div>
+        <?php endif; ?>
+        <div id="comment-list">
+        <?php foreach ($comments as $comment): ?>
+            <div class="comment">
+                <strong><?= e($comment['author_name']) ?></strong>
+                <span class="muted"><?= e(time_ago($comment['created_at'])) ?></span>
+                <p><?= nl2br(e($comment['message'])) ?></p>
+            </div>
+        <?php endforeach; ?>
+        </div>
+        <form method="post" action="" id="comment-form">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="comment">
+            <textarea name="message" rows="2" placeholder="Ask a clarifying question..." required></textarea>
+            <button type="submit" class="btn btn-primary btn-sm">Post Comment</button>
+        </form>
+    </section>
+</div>
+<script src="<?= BASE_URL ?>/js/claims.js"></script>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

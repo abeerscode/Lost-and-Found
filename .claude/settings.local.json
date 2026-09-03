@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(perl -pi -e \"s/current_user_id\\\\\\(\\\\\\)/current_admin_id\\(\\)/g\" admin/manage_users.php)"
+    ]
+  }
+}

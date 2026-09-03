@@ -1,0 +1,49 @@
+// AJAX comment posting + confirmation prompts for claim/post actions.
+(function () {
+    const form = document.getElementById('comment-form');
+    const list = document.getElementById('comment-list');
+
+    if (form && list) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const textarea = form.querySelector('textarea[name="message"]');
+            const message = textarea.value.trim();
+            if (!message) return;
+
+            const formData = new FormData(form);
+            fetch(window.location.pathname + window.location.search, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData,
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    const div = document.createElement('div');
+                    div.className = 'comment';
+                    div.innerHTML = `<strong></strong> <span class="muted"></span><p></p>`;
+                    div.querySelector('strong').textContent = data.author_name;
+                    div.querySelector('.muted').textContent = data.time_ago;
+                    div.querySelector('p').textContent = data.message;
+                    list.appendChild(div);
+                    textarea.value = '';
+
+                    const countEl = document.getElementById('comments-count');
+                    if (countEl) countEl.textContent = String(Number(countEl.textContent) + 1);
+                })
+                .catch(() => alert('Could not post comment. Please try again.'));
+        });
+    }
+
+    document.querySelectorAll('form[action*="respond_claim.php"]').forEach((f) => {
+        f.addEventListener('submit', (e) => {
+            const decision = e.submitter && e.submitter.value;
+            if (decision === 'rejected' && !confirm('Reject this claim request?')) {
+                e.preventDefault();
+            }
+        });
+    });
+})();
