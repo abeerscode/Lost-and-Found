@@ -1,6 +1,11 @@
 <?php
 // Global site configuration. Adjust for your environment.
 
+// Application timezone. Database timestamps in this local XAMPP project are
+// interpreted as Bangladesh local time, and ISO timestamps sent to JavaScript
+// must include the +06:00 offset so relative times remain correct after reloads.
+date_default_timezone_set('Asia/Dhaka');
+
 // Restrict registration/login to this email domain (FR-1.1, FR-1.2, NFR-2.1).
 define('UNIVERSITY_EMAIL_DOMAIN', '@university.edu');
 

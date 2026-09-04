@@ -17,6 +17,10 @@ try {
             PDO::ATTR_EMULATE_PREPARES => false,
         ]
     );
+
+    // Keep MySQL session timestamps aligned with the application's timezone.
+    // TIMESTAMP columns are converted using the session time zone when read/written.
+    $pdo->exec("SET time_zone = '+06:00'");
 } catch (PDOException $e) {
     http_response_code(500);
     die('Database connection failed. Please try again later.');
