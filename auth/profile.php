@@ -60,9 +60,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwner) {
 
 $stmt = $pdo->prepare('SELECT p.*, c.name AS category_name FROM posts p JOIN categories c ON c.id = p.category_id WHERE p.user_id = ? ORDER BY p.created_at DESC');
 $stmt->execute([$profileId]);
-$posts = $stmt->fetchAll();
+$allPosts = $stmt->fetchAll();
+
+$allowedStatusFilters = ['all', 'open', 'claimed', 'resolved'];
+$statusFilter = strtolower(trim($_GET['status'] ?? 'all'));
+if (!in_array($statusFilter, $allowedStatusFilters, true)) {
+    $statusFilter = 'all';
+}
+
+$posts = $statusFilter === 'all'
+    ? $allPosts
+    : array_values(array_filter($allPosts, static fn($post) => $post['status'] === $statusFilter));
+
 $lostCount = 0; $foundCount = 0; $resolvedCount = 0;
-foreach ($posts as $p) {
+foreach ($allPosts as $p) {
     if ($p['type'] === 'lost') $lostCount++;
     if ($p['type'] === 'found') $foundCount++;
     if ($p['status'] === 'resolved') $resolvedCount++;
@@ -93,7 +104,14 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <div class="profile-actions">
             <?php if ($isOwner): ?>
-                <?php if ($editing): ?><a class="btn" href="<?= BASE_URL ?>/auth/profile.php">Cancel</a><?php else: ?><a class="btn btn-primary" href="<?= BASE_URL ?>/auth/profile.php?edit=1">Update profile</a><?php endif; ?>
+                <?php if ($editing): ?>
+                    <a class="btn" href="<?= BASE_URL ?>/auth/profile.php">Cancel</a>
+                <?php else: ?>
+                    <a class="btn btn-primary" href="<?= BASE_URL ?>/auth/profile.php?edit=1">Update profile</a>
+                    <a class="profile-logout-link" href="<?= BASE_URL ?>/auth/logout.php">
+                        <span aria-hidden="true">↪</span> Log out
+                    </a>
+                <?php endif; ?>
             <?php else: ?>
                 <a class="btn btn-primary" href="<?= BASE_URL ?>/messages/conversation.php?with=<?= $user['id'] ?>">Message</a>
             <?php endif; ?>
@@ -127,7 +145,9 @@ include __DIR__ . '/../includes/header.php';
     </section>
     <?php endif; ?>
 
-    <div class="profile-layout">
+    <div class="profile-dashboard-layout">
+        <div class="profile-main-column">
+            <div class="profile-layout">
         <aside class="profile-about-card">
             <div class="section-heading compact"><div><span class="section-kicker">About</span><h2>University identity</h2></div></div>
             <dl class="profile-details">
@@ -145,12 +165,31 @@ include __DIR__ . '/../includes/header.php';
 
         <section class="profile-activity">
             <div class="profile-stats">
-                <div><strong><?= count($posts) ?></strong><span>Reports</span></div>
+                <div><strong><?= count($allPosts) ?></strong><span>Reports</span></div>
                 <div><strong><?= $lostCount ?></strong><span>Lost</span></div>
                 <div><strong><?= $foundCount ?></strong><span>Found</span></div>
                 <div><strong><?= $resolvedCount ?></strong><span>Resolved</span></div>
             </div>
-            <div class="profile-posts-heading"><div><span class="section-kicker"><?= $isOwner ? 'Your activity' : 'Public activity' ?></span><h2><?= $isOwner ? 'My reports' : e($user['name']) . '’s reports' ?></h2></div></div>
+            <div class="profile-posts-heading">
+                <div>
+                    <span class="section-kicker"><?= $isOwner ? 'Your activity' : 'Public activity' ?></span>
+                    <h2><?= $isOwner ? 'My reports' : e($user['name']) . '’s reports' ?></h2>
+                </div>
+                <div class="profile-post-tools">
+                    <?php if ($isOwner): ?>
+                        <a class="btn btn-primary profile-post-create" href="<?= BASE_URL ?>/posts/create.php" aria-label="Post a lost or found item"><span aria-hidden="true">+</span> Post item</a>
+                    <?php endif; ?>
+                    <form method="get" class="profile-status-filter">
+                        <?php if (!$isOwner): ?><input type="hidden" name="id" value="<?= $profileId ?>"><?php endif; ?>
+                        <select id="profile-status" name="status" aria-label="Filter reports by status" onchange="this.form.submit()">
+                            <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>All statuses</option>
+                            <option value="open" <?= $statusFilter === 'open' ? 'selected' : '' ?>>Open</option>
+                            <option value="claimed" <?= $statusFilter === 'claimed' ? 'selected' : '' ?>>Claimed</option>
+                            <option value="resolved" <?= $statusFilter === 'resolved' ? 'selected' : '' ?>>Resolved</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
             <?php if (!$posts): ?>
                 <div class="profile-empty"><strong>No reports yet</strong><p><?= $isOwner ? 'Items you report will appear here.' : 'This member has not posted any lost or found items yet.' ?></p></div>
             <?php else: ?>
@@ -168,6 +207,31 @@ include __DIR__ . '/../includes/header.php';
                 </div>
             <?php endif; ?>
         </section>
+            </div>
+        </div>
+
+        <?php if ($isOwner): ?>
+        <aside class="profile-side-column">
+            <section class="profile-side-card report-card">
+                <div>
+                    <span class="section-kicker">Quick action</span>
+                    <h2>Report a lost or found item</h2>
+                    <p>Help your campus community by reporting an item in just a few steps.</p>
+                </div>
+                <div class="profile-report-illustration" aria-hidden="true">
+                    <svg viewBox="0 0 120 92"><path d="M34 74V34c0-13 10-23 23-23s23 10 23 23v40"/><path d="M23 79h68"/><path d="M46 20c-11 4-18 14-18 26v28M69 17c12 5 20 16 20 29v28"/><rect x="44" y="38" width="26" height="27" rx="5"/><path d="M96 53v23h16V53m-13 0v-8h10v8"/></svg>
+                </div>
+                <a class="btn btn-primary profile-side-cta" href="<?= BASE_URL ?>/posts/create.php">Report an item <span aria-hidden="true">→</span></a>
+            </section>
+
+            <section class="profile-side-card how-card">
+                <h2>How it works</h2>
+                <div class="how-step"><span class="how-step-icon">1</span><div><strong>Report</strong><p>Share the item, location and useful details.</p></div></div>
+                <div class="how-step"><span class="how-step-icon">2</span><div><strong>Connect</strong><p>Use comments or messages to reach the right person.</p></div></div>
+                <div class="how-step"><span class="how-step-icon">3</span><div><strong>Resolve</strong><p>Update the report when the item is returned.</p></div></div>
+            </section>
+        </aside>
+        <?php endif; ?>
     </div>
 </div>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -18,6 +18,15 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<section class="feed-report-prompt" aria-label="Report a lost or found item">
+    <div class="feed-report-prompt-icon" aria-hidden="true">+</div>
+    <div class="feed-report-prompt-copy">
+        <strong>Need to report a lost or found item?</strong>
+        <span>Share the details while they are still fresh.</span>
+    </div>
+    <a class="btn btn-primary" href="<?= BASE_URL ?>/posts/create.php">Report item <span aria-hidden="true">→</span></a>
+</section>
+
 <?php
 $locations = $pdo->query("SELECT DISTINCT location FROM posts WHERE location <> '' ORDER BY location")->fetchAll(PDO::FETCH_COLUMN);
 ?>
