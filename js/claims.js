@@ -39,14 +39,20 @@
         });
     }
 
-    function replyFormMarkup(parentId) {
+    function avatarContent(photoUrl, fallback) {
+        const photo = String(photoUrl || '').trim();
+        if (photo) return `<img src="${escapeHtml(photo)}" alt="">`;
+        return escapeHtml(fallback || 'U');
+    }
+
+    function replyFormMarkup(parentId, photoUrl = '') {
         const token = escapeHtml(csrfToken());
         return `<form method="post" action="" class="inline-reply-form" data-parent-id="${parentId}" hidden>
             <input type="hidden" name="csrf_token" value="${token}">
             <input type="hidden" name="action" value="comment">
             <input type="hidden" name="parent_id" value="${parentId}">
             <div class="comment-composer comment-composer-reply">
-                <span class="comment-avatar comment-avatar-sm comment-avatar-self" aria-hidden="true">You</span>
+                <span class="comment-avatar comment-avatar-sm comment-avatar-self" aria-hidden="true">${avatarContent(photoUrl, 'You')}</span>
                 <textarea name="message" rows="1" maxlength="1000" placeholder="Write a reply..." required></textarea>
                 <button type="submit" class="comment-send-btn" aria-label="Post reply" title="Post reply">&#10148;</button>
             </div>
@@ -61,10 +67,11 @@
         const profileUrl = escapeHtml(data.profile_url || '#');
         const timestamp = escapeHtml(data.created_at || new Date().toISOString());
         const parentId = Number(data.parent_id || data.id);
+        const avatar = avatarContent(data.author_photo_url, initial);
 
         if (isReply) {
             return `<article class="comment-reply" id="comment-${data.id}">
-                <a class="comment-avatar comment-avatar-sm" href="${profileUrl}" aria-label="View ${name}'s profile">${initial}</a>
+                <a class="comment-avatar comment-avatar-sm" href="${profileUrl}" aria-label="View ${name}'s profile">${avatar}</a>
                 <div class="comment-content-wrap">
                     <div class="comment-bubble"><a class="comment-author" href="${profileUrl}">${name}</a><p>${message}</p></div>
                     <div class="comment-meta-actions">
@@ -77,7 +84,7 @@
 
         return `<article class="comment-thread" id="comment-${data.id}" data-comment-id="${data.id}">
             <div class="comment-row">
-                <a class="comment-avatar" href="${profileUrl}" aria-label="View ${name}'s profile">${initial}</a>
+                <a class="comment-avatar" href="${profileUrl}" aria-label="View ${name}'s profile">${avatar}</a>
                 <div class="comment-content-wrap">
                     <div class="comment-bubble"><a class="comment-author" href="${profileUrl}">${name}</a><p>${message}</p></div>
                     <div class="comment-meta-actions">
@@ -85,7 +92,7 @@
                         <button type="button" class="comment-reply-btn" data-reply-to="${data.id}" data-reply-name="${name}">Reply</button>
                     </div>
                     <div class="comment-replies" data-replies-for="${data.id}"></div>
-                    ${replyFormMarkup(data.id)}
+                    ${replyFormMarkup(data.id, data.author_photo_url || '')}
                 </div>
             </div>
         </article>`;

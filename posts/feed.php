@@ -18,19 +18,14 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<section class="feed-report-prompt" aria-label="Report a lost or found item">
-    <div class="feed-report-prompt-icon" aria-hidden="true">+</div>
-    <div class="feed-report-prompt-copy">
-        <strong>Need to report a lost or found item?</strong>
-        <span>Share the details while they are still fresh.</span>
-    </div>
-    <a class="btn btn-primary" href="<?= BASE_URL ?>/posts/create.php">Report item <span aria-hidden="true">→</span></a>
-</section>
+
 
 <?php
 $locations = $pdo->query("SELECT DISTINCT location FROM posts WHERE location <> '' ORDER BY location")->fetchAll(PDO::FETCH_COLUMN);
 ?>
 
+<div class="feed-page-layout">
+    <div class="feed-main-column">
 <form id="filter-form" class="feed-toolbar" autocomplete="off">
     <div class="feed-toolbar-main">
         <label class="feed-search" for="f-q">
@@ -104,6 +99,29 @@ $locations = $pdo->query("SELECT DISTINCT location FROM posts WHERE location <> 
     </div>
     <div id="feed-pagination" class="pagination"></div>
 </section>
+    </div>
+
+    <aside class="feed-side-column" aria-label="Lost and found help">
+        <section class="profile-side-card report-card">
+            <div>
+                <span class="section-kicker">Quick action</span>
+                <h2>Report a lost or found item</h2>
+                <p>Help your campus community by reporting an item in just a few steps.</p>
+            </div>
+            <div class="profile-report-illustration" aria-hidden="true">
+                <svg viewBox="0 0 120 92"><path d="M34 74V34c0-13 10-23 23-23s23 10 23 23v40"/><path d="M23 79h68"/><path d="M46 20c-11 4-18 14-18 26v28M69 17c12 5 20 16 20 29v28"/><rect x="44" y="38" width="26" height="27" rx="5"/><path d="M96 53v23h16V53m-13 0v-8h10v8"/></svg>
+            </div>
+            <a class="btn btn-primary profile-side-cta" href="<?= BASE_URL ?>/posts/create.php">Report an item <span aria-hidden="true">→</span></a>
+        </section>
+
+        <section class="profile-side-card how-card">
+            <h2>How it works</h2>
+            <div class="how-step"><span class="how-step-icon">1</span><div><strong>Report</strong><p>Share the item, location and useful details.</p></div></div>
+            <div class="how-step"><span class="how-step-icon">2</span><div><strong>Connect</strong><p>Use comments or messages to reach the right person.</p></div></div>
+            <div class="how-step"><span class="how-step-icon">3</span><div><strong>Resolve</strong><p>Update the report when the item is returned.</p></div></div>
+        </section>
+    </aside>
+</div>
 
 <template id="post-card-template">
     <a class="post-card" href="">

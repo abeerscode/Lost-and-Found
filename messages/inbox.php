@@ -10,7 +10,7 @@ $userId = current_user_id();
 // Latest message for each partner + item context. Keeping post_id in the
 // grouping lets the demo conversation show separate threads for separate items.
 $stmt = $pdo->prepare(
-    "SELECT m.*, u.name AS partner_name, u.id AS partner_id, p.title AS post_title, p.photo_url
+    "SELECT m.*, u.name AS partner_name, u.id AS partner_id, u.profile_photo AS partner_profile_photo, p.title AS post_title, p.photo_url
      FROM messages m
      JOIN users u ON u.id = IF(m.sender_id = ?, m.receiver_id, m.sender_id)
      LEFT JOIN posts p ON p.id = m.post_id
@@ -38,7 +38,7 @@ include __DIR__ . '/../includes/header.php';
         <?php foreach ($conversations as $conv): ?>
             <a class="conversation-row <?= ($conv['receiver_id'] == $userId && !$conv['is_read']) ? 'unread' : '' ?>"
                href="<?= BASE_URL ?>/messages/conversation.php?with=<?= $conv['partner_id'] ?><?= $conv['post_id'] ? '&post_id=' . $conv['post_id'] : '' ?>">
-                <div class="conversation-avatar"><?= e(strtoupper(substr($conv['partner_name'], 0, 1))) ?></div>
+                <div class="conversation-avatar"><?php if (!empty($conv['partner_profile_photo'])): ?><img src="<?= e(profile_photo_url($conv['partner_profile_photo'])) ?>" alt=""><?php else: ?><?= e(strtoupper(substr($conv['partner_name'], 0, 1))) ?><?php endif; ?></div>
                 <div class="conversation-main">
                     <div class="conversation-line"><strong><?= e($conv['partner_name']) ?></strong><span class="muted time"><?= e(time_ago($conv['created_at'])) ?></span></div>
                     <?php if ($conv['post_title']): ?><div class="conversation-item">About: <?= e($conv['post_title']) ?></div><?php endif; ?>

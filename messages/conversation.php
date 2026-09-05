@@ -10,7 +10,7 @@ $withId = (int)($_GET['with'] ?? $_POST['with'] ?? 0);
 $postId = isset($_GET['post_id']) ? (int)$_GET['post_id'] : (isset($_POST['post_id']) ? (int)$_POST['post_id'] : null);
 if ($withId === (int)$userId || $withId <= 0) { http_response_code(400); die('Invalid conversation.'); }
 
-$stmt = $pdo->prepare('SELECT id, name, department FROM users WHERE id = ?');
+$stmt = $pdo->prepare('SELECT id, name, department, profile_photo FROM users WHERE id = ?');
 $stmt->execute([$withId]);
 $partner = $stmt->fetch();
 if (!$partner) { http_response_code(404); die('User not found.'); }
@@ -50,7 +50,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="chat-shell">
     <div class="chat-topbar">
         <a class="chat-back" href="<?= BASE_URL ?>/messages/inbox.php">←</a>
-        <div class="conversation-avatar large"><?= e(strtoupper(substr($partner['name'], 0, 1))) ?></div>
+        <div class="conversation-avatar large"><?php if (!empty($partner['profile_photo'])): ?><img src="<?= e(profile_photo_url($partner['profile_photo'])) ?>" alt=""><?php else: ?><?= e(strtoupper(substr($partner['name'], 0, 1))) ?><?php endif; ?></div>
         <div class="chat-person"><h1><a class="profile-inline-link" href="<?= BASE_URL ?>/auth/profile.php?id=<?= $partner['id'] ?>"><?= e($partner['name']) ?></a></h1><p><?= e($partner['department'] ?: 'University member') ?></p></div>
     </div>
     <?php if ($post): ?>

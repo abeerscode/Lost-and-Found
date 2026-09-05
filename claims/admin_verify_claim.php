@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/admin_auth_check.php';
 
 $stmt = $pdo->query(
-    "SELECT cl.*, p.title, p.id AS post_id, u.name AS claimant_name
+    "SELECT cl.*, p.title, p.id AS post_id, u.name AS claimant_name, u.profile_photo AS claimant_profile_photo
      FROM claims cl
      JOIN posts p ON p.id = cl.post_id
      JOIN users u ON u.id = cl.claimant_id
@@ -40,6 +40,7 @@ include __DIR__ . '/../includes/admin_header.php';
     <?php foreach ($pendingClaims as $claim): ?>
         <div class="claim-card">
             <div class="claim-card-top">
+                <span class="claimant-avatar"><?php if (!empty($claim['claimant_profile_photo'])): ?><img src="<?= e(profile_photo_url($claim['claimant_profile_photo'])) ?>" alt=""><?php else: ?><?= e(strtoupper(substr(trim($claim['claimant_name']), 0, 1))) ?><?php endif; ?></span>
                 <strong><?= e($claim['claimant_name']) ?></strong> claims
                 <a href="<?= BASE_URL ?>/posts/view.php?id=<?= $claim['post_id'] ?>"><?= e($claim['title']) ?></a>
                 <span class="muted"><?= e(time_ago($claim['created_at'])) ?></span>

@@ -1,25 +1,31 @@
-LOST & FOUND — CLEAN DEMO BUILD
+LOST & FOUND — LARGE DEMO CREDENTIALS (ENHANCED)
 
-Database: lost_and_found
-Import: database/lost_and_found.sql
+All passwords are 8+ characters.
 
-Demo users
-1) john.doe@uni.edu / demo123
-2) sara.khan@uni.edu / demo123
+01. Md. Abeer Hasan | Student | abeer@uni.edu | abeer123
+02. John Doe | Student | john.doe@uni.edu | student123
+03. Sara Khan | Student | sara.khan@uni.edu | student123
+04. Nusrat Jahan | Student | nusrat.jahan@uni.edu | student123
+05. Tahmid Rahman | Student | tahmid.rahman@uni.edu | student123
+06. Rafiul Islam | Student | rafiul.islam@uni.edu | student123
+07. Afsana Mimi | Student | afsana.mimi@uni.edu | student123
+08. Imran Hossain | Student | imran.hossain@uni.edu | student123
+09. Tasmia Rahman | Student | tasmia.rahman@uni.edu | student123
+10. Nahid Hasan | Student | nahid.hasan@uni.edu | student123
+11. Dr. Farhana Islam | Faculty | farhana.islam@uni.edu | faculty123
+12. Prof. Kamrul Hasan | Faculty | kamrul.hasan@uni.edu | faculty123
+13. Dr. Sadia Karim | Faculty | sadia.karim@uni.edu | faculty123
+14. Dr. Minhaj Uddin | Faculty | minhaj.uddin@uni.edu | faculty123
+15. Dr. Arifa Sultana | Faculty | arifa.sultana@uni.edu | faculty123
+16. Mr. Rezaul Karim | Staff | rezaul.karim@uni.edu | staff1234
+17. Ms. Shahana Akter | Staff | shahana.akter@uni.edu | staff1234
+18. Mr. Babul Hossain | Staff | babul.hossain@uni.edu | staff1234
+19. Mr. Naim Ahmed | Staff | naim.ahmed@uni.edu | staff1234
+20. Ms. Laila Rahman | Staff | laila.rahman@uni.edu | staff1234
+21. System Administrator | Staff | admin@uni.edu | admin1234
 
-Admin
-admin@uni.edu / admin123
+Primary stress-test account: abeer@uni.edu / abeer123
+Abeer now has 10 reports, 12 distinct long conversation threads, and a populated notification feed.
+All users now include local AI-generated profile photos.
 
-Important
-- Keep the project folder name consistent with BASE_URL in config/config.php.
-- Current BASE_URL is /lost-and-found.
-- Seed images are stored in uploads/demo/.
-- The app normalizes both demo/... and uploads/demo/... seed paths for compatibility.
-
-PROFILE UPGRADE
----------------
-If you created the database before the profile redesign, run:
-database/migrations/2026_09_profile_upgrade.sql
-
-This adds the `batch` and `profile_photo` fields used by the new profile UI.
-Public profiles intentionally hide email, phone and the full university ID.
+Post images: remote Pexels URLs (internet connection required).

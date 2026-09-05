@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/auth_check.php';
 $postId = (int)($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare(
-    'SELECT p.*, c.name AS category_name, u.name AS owner_name, u.id AS owner_id
+    'SELECT p.*, c.name AS category_name, u.name AS owner_name, u.id AS owner_id, u.profile_photo AS owner_profile_photo
      FROM posts p JOIN categories c ON c.id = p.category_id JOIN users u ON u.id = p.user_id
      WHERE p.id = ?'
 );
@@ -26,9 +26,14 @@ if (!$post) {
 
 $isOwner = (int)$post['owner_id'] === (int)current_user_id();
 
+$currentUserPhotoStmt = $pdo->prepare('SELECT profile_photo FROM users WHERE id = ? LIMIT 1');
+$currentUserPhotoStmt->execute([current_user_id()]);
+$currentUserProfilePhoto = $currentUserPhotoStmt->fetchColumn() ?: null;
+$currentUserPhotoUrl = $currentUserProfilePhoto ? profile_photo_url($currentUserProfilePhoto) : null;
+
 // Comments
 $stmt = $pdo->prepare(
-    'SELECT cm.*, u.name AS author_name, u.id AS author_id FROM comments cm JOIN users u ON u.id = cm.user_id
+    'SELECT cm.*, u.name AS author_name, u.id AS author_id, u.profile_photo AS author_profile_photo FROM comments cm JOIN users u ON u.id = cm.user_id
      WHERE cm.post_id = ? ORDER BY cm.created_at ASC'
 );
 $stmt->execute([$postId]);
@@ -45,13 +50,13 @@ $topLevelComments = $commentsByParent[0] ?? [];
 // their own — admin-side review happens separately in the admin panel)
 if ($isOwner) {
     $stmt = $pdo->prepare(
-        'SELECT cl.*, u.name AS claimant_name FROM claims cl JOIN users u ON u.id = cl.claimant_id
+        'SELECT cl.*, u.name AS claimant_name, u.profile_photo AS claimant_profile_photo FROM claims cl JOIN users u ON u.id = cl.claimant_id
          WHERE cl.post_id = ? ORDER BY cl.created_at DESC'
     );
     $stmt->execute([$postId]);
 } else {
     $stmt = $pdo->prepare(
-        'SELECT cl.*, u.name AS claimant_name FROM claims cl JOIN users u ON u.id = cl.claimant_id
+        'SELECT cl.*, u.name AS claimant_name, u.profile_photo AS claimant_profile_photo FROM claims cl JOIN users u ON u.id = cl.claimant_id
          WHERE cl.post_id = ? AND cl.claimant_id = ? ORDER BY cl.created_at DESC'
     );
     $stmt->execute([$postId, current_user_id()]);
@@ -133,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'comme
                 'message' => $message,
                 'created_at' => date('c', strtotime($newCreatedAt)),
                 'profile_url' => BASE_URL . '/auth/profile.php?id=' . current_user_id(),
+                'author_photo_url' => $currentUserPhotoUrl,
             ]);
             exit;
         }
@@ -206,6 +212,7 @@ include __DIR__ . '/../includes/header.php';
             <?php foreach ($claims as $claim): ?>
                 <div class="claim-card">
                     <div class="claim-card-top">
+                        <span class="claimant-avatar"><?php if (!empty($claim['claimant_profile_photo'])): ?><img src="<?= e(profile_photo_url($claim['claimant_profile_photo'])) ?>" alt=""><?php else: ?><?= e(strtoupper(substr(trim($claim['claimant_name']), 0, 1))) ?><?php endif; ?></span>
                         <strong><?= e($claim['claimant_name']) ?></strong>
                         <?= status_badge($claim['status']) ?>
                         <span class="muted"><?= e(time_ago($claim['created_at'])) ?></span>
@@ -241,7 +248,7 @@ include __DIR__ . '/../includes/header.php';
         <?php foreach ($topLevelComments as $comment): ?>
             <article class="comment-thread" id="comment-<?= (int)$comment['id'] ?>" data-comment-id="<?= (int)$comment['id'] ?>">
                 <div class="comment-row">
-                    <a class="comment-avatar" href="<?= BASE_URL ?>/auth/profile.php?id=<?= (int)$comment['author_id'] ?>" aria-label="View <?= e($comment['author_name']) ?>'s profile"><?= e(strtoupper(substr(trim($comment['author_name']), 0, 1))) ?></a>
+                    <a class="comment-avatar" href="<?= BASE_URL ?>/auth/profile.php?id=<?= (int)$comment['author_id'] ?>" aria-label="View <?= e($comment['author_name']) ?>'s profile"><?php if (!empty($comment['author_profile_photo'])): ?><img src="<?= e(profile_photo_url($comment['author_profile_photo'])) ?>" alt=""><?php else: ?><?= e(strtoupper(substr(trim($comment['author_name']), 0, 1))) ?><?php endif; ?></a>
                     <div class="comment-content-wrap">
                         <div class="comment-bubble">
                             <a class="comment-author" href="<?= BASE_URL ?>/auth/profile.php?id=<?= (int)$comment['author_id'] ?>"><?= e($comment['author_name']) ?></a>
@@ -255,7 +262,7 @@ include __DIR__ . '/../includes/header.php';
                         <div class="comment-replies" data-replies-for="<?= (int)$comment['id'] ?>">
                         <?php foreach (($commentsByParent[(int)$comment['id']] ?? []) as $reply): ?>
                             <article class="comment-reply" id="comment-<?= (int)$reply['id'] ?>">
-                                <a class="comment-avatar comment-avatar-sm" href="<?= BASE_URL ?>/auth/profile.php?id=<?= (int)$reply['author_id'] ?>" aria-label="View <?= e($reply['author_name']) ?>'s profile"><?= e(strtoupper(substr(trim($reply['author_name']), 0, 1))) ?></a>
+                                <a class="comment-avatar comment-avatar-sm" href="<?= BASE_URL ?>/auth/profile.php?id=<?= (int)$reply['author_id'] ?>" aria-label="View <?= e($reply['author_name']) ?>'s profile"><?php if (!empty($reply['author_profile_photo'])): ?><img src="<?= e(profile_photo_url($reply['author_profile_photo'])) ?>" alt=""><?php else: ?><?= e(strtoupper(substr(trim($reply['author_name']), 0, 1))) ?><?php endif; ?></a>
                                 <div class="comment-content-wrap">
                                     <div class="comment-bubble">
                                         <a class="comment-author" href="<?= BASE_URL ?>/auth/profile.php?id=<?= (int)$reply['author_id'] ?>"><?= e($reply['author_name']) ?></a>
@@ -275,7 +282,7 @@ include __DIR__ . '/../includes/header.php';
                             <input type="hidden" name="action" value="comment">
                             <input type="hidden" name="parent_id" value="<?= (int)$comment['id'] ?>">
                             <div class="comment-composer comment-composer-reply">
-                                <span class="comment-avatar comment-avatar-sm comment-avatar-self" aria-hidden="true"><?= e(strtoupper(substr(trim($_SESSION['name'] ?? 'U'), 0, 1))) ?></span>
+                                <span class="comment-avatar comment-avatar-sm comment-avatar-self" aria-hidden="true"><?php if ($currentUserPhotoUrl): ?><img src="<?= e($currentUserPhotoUrl) ?>" alt=""><?php else: ?><?= e(strtoupper(substr(trim($_SESSION['name'] ?? 'U'), 0, 1))) ?><?php endif; ?></span>
                                 <textarea name="message" rows="1" maxlength="1000" placeholder="Write a reply..." required></textarea>
                                 <button type="submit" class="comment-send-btn" aria-label="Post reply" title="Post reply">&#10148;</button>
                             </div>
@@ -296,12 +303,12 @@ include __DIR__ . '/../includes/header.php';
             <input type="hidden" name="action" value="comment">
             <input type="hidden" name="parent_id" value="">
             <div class="comment-composer">
-                <span class="comment-avatar comment-avatar-self" aria-hidden="true"><?= e(strtoupper(substr(trim($_SESSION['name'] ?? 'U'), 0, 1))) ?></span>
+                <span class="comment-avatar comment-avatar-self" aria-hidden="true"><?php if ($currentUserPhotoUrl): ?><img src="<?= e($currentUserPhotoUrl) ?>" alt=""><?php else: ?><?= e(strtoupper(substr(trim($_SESSION['name'] ?? 'U'), 0, 1))) ?><?php endif; ?></span>
                 <textarea name="message" rows="1" maxlength="1000" placeholder="Write a comment..." required></textarea>
                 <button type="submit" class="comment-send-btn" aria-label="Post comment" title="Post comment">&#10148;</button>
             </div>
         </form>
     </section>
 </div>
-<script src="<?= BASE_URL ?>/js/claims.js?v=20260904-2"></script>
+<script src="<?= BASE_URL ?>/js/claims.js?v=<?= @filemtime(__DIR__ . '/../js/claims.js') ?: time() ?>"></script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
