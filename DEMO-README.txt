@@ -29,3 +29,9 @@ Abeer now has 10 reports, 12 distinct long conversation threads, and a populated
 All users now include local AI-generated profile photos.
 
 Post images: remote Pexels URLs (internet connection required).
+
+ADMIN PANEL
+Admin URL: /admin/login.php
+Admin email: admin@uni.edu
+Admin password: admin1234
+For an existing database, run database/migrations/2026_09_admin_panel.sql once.

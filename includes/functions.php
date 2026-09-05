@@ -197,3 +197,145 @@ function app_link($path) {
     if ($path[0] !== '/') $path = '/' . $path;
     return BASE_URL . $path;
 }
+
+function admin_log(PDO $pdo, $actionType, $targetType = null, $targetId = null, $description = '') {
+    if (!is_admin_logged_in()) return;
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO admin_activity (admin_id, action_type, target_type, target_id, description) VALUES (?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([current_admin_id(), $actionType, $targetType, $targetId, $description]);
+    } catch (PDOException $e) {
+        // Keep moderation actions usable if an older database has not yet run
+        // the admin activity migration. The admin UI will surface the migration notice.
+    }
+}
+
+function person_type_label($type) {
+    return match ($type) {
+        'faculty' => 'Faculty',
+        'staff' => 'Staff',
+        default => 'Student',
+    };
+}
+
+function account_status_badge($status) {
+    $class = match ($status) {
+        'active' => 'admin-status-active',
+        'suspended' => 'admin-status-suspended',
+        'banned' => 'admin-status-banned',
+        default => 'admin-status-neutral',
+    };
+    return '<span class="admin-status ' . $class . '">' . e(ucfirst($status)) . '</span>';
+}
+
+function admin_recent_events(PDO $pdo, $limit = 20) {
+    $events = [];
+
+    try {
+        $rows = $pdo->query(
+            "SELECT aa.id, aa.action_type, aa.target_type, aa.target_id, aa.description, aa.created_at,
+                    u.name AS actor_name
+             FROM admin_activity aa
+             LEFT JOIN users u ON u.id = aa.admin_id
+             ORDER BY aa.created_at DESC LIMIT 80"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            $events[] = [
+                'kind' => 'admin',
+                'title' => $row['description'] ?: ucfirst(str_replace('_', ' ', $row['action_type'])),
+                'meta' => ($row['actor_name'] ?: 'Administrator') . ' · admin action',
+                'created_at' => $row['created_at'],
+                'target_type' => $row['target_type'],
+                'target_id' => $row['target_id'],
+            ];
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $rows = $pdo->query(
+            "SELECT p.id, p.title, p.type, p.created_at, u.name AS user_name
+             FROM posts p JOIN users u ON u.id = p.user_id
+             ORDER BY p.created_at DESC LIMIT 60"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            $events[] = [
+                'kind' => 'post',
+                'title' => $row['user_name'] . ' reported “' . $row['title'] . '”',
+                'meta' => ucfirst($row['type']) . ' item report',
+                'created_at' => $row['created_at'],
+                'target_type' => 'post',
+                'target_id' => $row['id'],
+            ];
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $rows = $pdo->query(
+            "SELECT cl.id, cl.post_id, cl.status, cl.created_at, p.title, u.name AS user_name
+             FROM claims cl
+             JOIN posts p ON p.id = cl.post_id
+             JOIN users u ON u.id = cl.claimant_id
+             ORDER BY cl.created_at DESC LIMIT 60"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            $events[] = [
+                'kind' => 'claim',
+                'title' => $row['user_name'] . ' submitted a claim for “' . $row['title'] . '”',
+                'meta' => 'Claim · ' . ucfirst($row['status']),
+                'created_at' => $row['created_at'],
+                'target_type' => 'post',
+                'target_id' => $row['post_id'],
+            ];
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $rows = $pdo->query(
+            "SELECT psl.id, psl.post_id, psl.old_status, psl.new_status, psl.created_at, p.title,
+                    u.name AS actor_name
+             FROM post_status_log psl
+             JOIN posts p ON p.id = psl.post_id
+             LEFT JOIN users u ON u.id = psl.changed_by
+             ORDER BY psl.created_at DESC LIMIT 60"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            $events[] = [
+                'kind' => 'status',
+                'title' => '“' . $row['title'] . '” changed to ' . ucfirst($row['new_status']),
+                'meta' => ($row['actor_name'] ?: 'System') . ' · status update',
+                'created_at' => $row['created_at'],
+                'target_type' => 'post',
+                'target_id' => $row['post_id'],
+            ];
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $rows = $pdo->query(
+            "SELECT id, name, person_type, created_at FROM users
+             WHERE role <> 'admin' ORDER BY created_at DESC LIMIT 40"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            $events[] = [
+                'kind' => 'user',
+                'title' => $row['name'] . ' joined the system',
+                'meta' => person_type_label($row['person_type']) . ' account',
+                'created_at' => $row['created_at'],
+                'target_type' => 'user',
+                'target_id' => $row['id'],
+            ];
+        }
+    } catch (PDOException $e) {}
+
+    usort($events, fn($a, $b) => strtotime($b['created_at']) <=> strtotime($a['created_at']));
+    return array_slice($events, 0, max(1, (int)$limit));
+}
+
+function admin_event_url($event) {
+    $type = $event['target_type'] ?? null;
+    $id = (int)($event['target_id'] ?? 0);
+    if ($type === 'post' && $id) return BASE_URL . '/admin/post_view.php?id=' . $id;
+    if ($type === 'user' && $id) return BASE_URL . '/admin/user_view.php?id=' . $id;
+    return null;
+}

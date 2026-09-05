@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/admin_auth_check.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect('/claims/admin_verify_claim.php');
+    redirect('/admin/claims.php');
 }
 csrf_verify();
 
@@ -19,7 +19,7 @@ $decision = $_POST['decision'] ?? '';
 
 if (!in_array($decision, ['approved', 'rejected'], true)) {
     flash_set('Invalid decision.', 'error');
-    redirect('/claims/admin_verify_claim.php');
+    redirect('/admin/claims.php');
 }
 
 $stmt = $pdo->prepare(
@@ -31,15 +31,15 @@ $claim = $stmt->fetch();
 
 if (!$claim) {
     flash_set('Claim not found.', 'error');
-    redirect('/claims/admin_verify_claim.php');
+    redirect('/admin/claims.php');
 }
 if (!$claim['is_high_value']) {
     flash_set('Only high-value claims are handled here; ordinary claims are resolved by the post owner.', 'error');
-    redirect('/claims/admin_verify_claim.php');
+    redirect('/admin/claims.php');
 }
 if ($claim['status'] !== 'pending') {
     flash_set('This claim has already been resolved.', 'error');
-    redirect('/claims/admin_verify_claim.php');
+    redirect('/admin/claims.php');
 }
 
 $pdo->beginTransaction();
@@ -64,5 +64,7 @@ create_notification(
     BASE_URL . '/posts/view.php?id=' . $claim['post_id']
 );
 
+admin_log($pdo, 'claim_' . $decision, 'claim', $claimId, ucfirst($decision) . ' high-value claim #' . $claimId . ' for “' . $claim['title'] . '”.');
+
 flash_set('Claim ' . $decision . '.', 'success');
-redirect('/claims/admin_verify_claim.php');
+redirect('/admin/claims.php');

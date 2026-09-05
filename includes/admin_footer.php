@@ -1,7 +1,11 @@
+<?php if (is_admin_logged_in()): ?>
+        </main>
+        <footer class="admin-workspace-footer">Lost &amp; Found administration · <?= date('Y') ?></footer>
+    </section>
+</div>
+<?php else: ?>
 </main>
-<footer class="site-footer">
-    <p>Lost &amp; Found — Admin Panel &mdash; University Project, <?= date('Y') ?></p>
-</footer>
-<script src="<?= BASE_URL ?>/js/main.js"></script>
+<?php endif; ?>
+<script src="<?= BASE_URL ?>/js/main.js?v=<?= @filemtime(__DIR__ . '/../js/main.js') ?: time() ?>"></script>
 </body>
 </html>

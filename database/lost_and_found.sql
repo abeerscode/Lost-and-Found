@@ -126,6 +126,19 @@ CREATE TABLE post_status_log (
     FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE admin_activity (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT DEFAULT NULL,
+    action_type VARCHAR(60) NOT NULL,
+    target_type VARCHAR(40) DEFAULT NULL,
+    target_id INT DEFAULT NULL,
+    description VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_admin_activity_created (created_at),
+    INDEX idx_admin_activity_target (target_type, target_id),
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- USERS: 20 demo members + 1 admin, all with local AI-generated profile photos
 INSERT INTO users (id,name,university_id,email,password_hash,role,person_type,phone,department,batch,profile_photo,account_status,created_at) VALUES
 (1,'Md. Abeer Hasan','CSE-220101','abeer@uni.edu','$2y$12$3k/27F7YNQWZ4vddibk0B.HxsHins7xMp5Lz6VAciNJfupG4fbuvy','user','student','01710000101','Computer Science & Engineering','2022','profiles/user_01.jpg','active','2025-09-08 09:00:00'),
